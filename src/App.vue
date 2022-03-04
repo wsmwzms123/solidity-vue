@@ -1,11 +1,36 @@
 <script setup>
 import { ethers } from 'ethers'
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { abi } from "@/json/WavePortal.json"
 
-const CONTRACT_ADDRESS = '0x25ca19ee23ea295b43e96d7e82038b309231ad4e'
+const CONTRACT_ADDRESS = '0xce76b7320c99512c9894f70ef064bee3ab668860'
 const CONTRACT_ABI = abi
+
 const currentAccount = ref('')
+let allWaves = ref([])
+
+const getAllWaves = async () => {
+  if (!window.ethereum) return
+  try {
+    const provider = new ethers.providers.Web3Provider(ethereum)
+    const signer = provider.getSigner()
+    const wavePortalContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer)
+    const waves = await wavePortalContract.getAllWaves()
+
+    allWaves.value = waves.map(
+      ({
+        waver,
+        timestamp,
+        message
+      }) => ({
+        address: waver,
+        timestamp: new Date(timestamp * 1000),
+        message: message
+      }))
+  } catch (error) {
+
+  }
+}
 
 const checkIfWalletIsConnected = async () => {
   if (!window.ethereum) return
@@ -14,6 +39,7 @@ const checkIfWalletIsConnected = async () => {
     if (accounts.length) {
       currentAccount.value = accounts[0]
       console.log("Found an authorized account:", currentAccount.value)
+      getAllWaves()
     }
   } catch (error) { console.log(error) }
 }
@@ -30,6 +56,8 @@ const wave = async () => {
   if (!window.ethereum) return
 
   try {
+   const message =  window.prompt('type your message here')
+
     const provider = new ethers.providers.Web3Provider(ethereum)
     console.log(provider)
     const signer = provider.getSigner()
@@ -39,7 +67,7 @@ const wave = async () => {
     let count = await wavePortalContract.getTotalWaves()
     console.log("Retrieved total wave count...", count.toNumber())
 
-    const waveTxn = await wavePortalContract.wave()
+    const waveTxn = await wavePortalContract.wave(message)
     console.log("Mining...", waveTxn.hash)
 
     await waveTxn.wait()
@@ -47,6 +75,7 @@ const wave = async () => {
 
     count = await wavePortalContract.getTotalWaves()
     console.log("Retrieved total wave count...", count.toNumber())
+    getAllWaves()
   } catch (error) { console.log(error) }
 }
 
@@ -65,6 +94,16 @@ onMounted(() => {
       >I am farza and I worked on self-driving cars so that's pretty cool right? Connect your Ethereum wallet and wave at me!</div>
       <button class="waveButton" @click="wave">Wave at Me</button>
       <button v-if="!currentAccount" class="waveButton" @click="connectWallet">Connect Wallet</button>
+
+      <div
+        :key="i"
+        v-for="(wave, i) in allWaves"
+        style="background: OldLace; margin-top: 16px; padding: 8px;"
+      >
+        <div>Address: {{ wave.address }}</div>
+        <div>Time: {{ wave.timestamp }}</div>
+        <div>Message: {{ wave.message }}</div>
+      </div>
     </div>
   </div>
 </template>
